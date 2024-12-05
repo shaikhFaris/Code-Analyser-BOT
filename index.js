@@ -77,9 +77,12 @@ client.on("messageCreate", (msg) => {
     msg.author.bot == false &&
     msg.author.id == "1185502471968268381"
   ) {
-    if (Array.from(msg.mentions.users.values()).length > 1) {
+    if (
+      Array.from(msg.mentions.users.values()).length > 1 ||
+      Array.from(msg.mentions.users.values()).length == 0
+    ) {
       try {
-        msg.reply("**WARNING**: Can add only one user at a time!!!!");
+        msg.reply("**⚠️ WARNING**: Can add only one user at a time!!!!");
       } catch (error) {
         console.log("some error occured");
       }
@@ -104,14 +107,22 @@ client.on("messageCreate", (msg) => {
                 added_date: `${new Date()}`,
               })
               .then(() => {
-                msg.reply(
-                  `**${userData.globalName}** has been added successfully ✅`
-                );
-                console.log(userData.globalName + " added successfully");
+                try {
+                  msg.reply(
+                    `✅ **${userData.globalName}** has been added successfully `
+                  );
+                  console.log(userData.globalName + " added successfully");
+                } catch (error) {
+                  console.log("some error occured");
+                }
               })
               .catch((err) => {
                 console.log("Some error occured while adding user" + err);
-                msg.reply(`Some error occured while adding user`);
+                try {
+                  msg.reply(`Some error occured while adding user`);
+                } catch (error) {
+                  console.log("some error occured");
+                }
               });
           }
         })
@@ -149,7 +160,11 @@ client.on("messageCreate", (msg) => {
       })
       .catch((err) => {
         console.log("Some error occured while listing user" + err);
-        msg.reply(`Some error occured while listing user`);
+        try {
+          msg.reply(`Some error occured while listing user`);
+        } catch (error) {
+          console.log("some error occured");
+        }
       });
   }
 
@@ -178,7 +193,7 @@ client.on("messageCreate", (msg) => {
   ) {
     try {
       msg.reply(
-        "1. `$quotes` - This command gives you some great quotes (obviously programming related) to help you cope with dopmanine crash.\n2. This bot will give you the summary of your answer if you post the link to the raw file of your solution in the _daily-soluion_ channel (make sure to post only the link of the raw file).\n3. `list-father` - This commands lets you know the one who programmed this bot"
+        "1. `$quotes` - This command gives you some great quotes (obviously programming related) to help you cope with dopmanine crash.\n2. This bot will give you the summary of your answer if you post the link to the raw file of your solution in the _daily-soluion_ channel (make sure to post only the link of the raw file).\n3. `list-father` - This commands lets you know the one who programmed this bot\n4. `add-user` - This commands adds the user to the bot database. After this the user will be able to post solutions (**can only be used by father**)\n5. `list-users` - This commands lists all the users and their points"
       );
     } catch (error) {
       console.log("Error while sending list-commands reply" + error);
@@ -188,49 +203,86 @@ client.on("messageCreate", (msg) => {
   else {
     const link = msg.content.match(/https?:\/\/[^\s]+/);
     if (
+      // if user is sharing solution
       link != null &&
       link[0].indexOf("raw.githubusercontent.com") > -1 &&
       msg.channelId == allowedChannelID &&
       msg.author.bot == false
     ) {
+      let checker = false;
+      let submissions = null;
       console.log(`${msg.author.username} just shared his/her solution`);
-      checkCode(link[0])
-        .then((data) => {
-          if (data.includes("✅") == true) {
-            userModel
-              .findOneAndUpdate(
-                { user_ID: msg.author.id },
-                { $inc: { user_points: 10, no_submission_perDay: 1 } }
-              )
-              .then((data) => {
-                // console.log(data);
-                msg.reply(data.user_name + "'s points **increased** by 10\n");
-              })
-              .catch((err) => {
-                console.log("error while incrementing points" + err);
-              });
+      userModel.find({}).then((data) => {
+        for (let i = 0; i < data.length; i++) {
+          if (data[i].user_ID === msg.author.id) {
+            checker = true;
+            submissions = data[i].no_submission_perDay;
+            break;
           }
-          if (data.includes("❌") == true) {
-            userModel
-              .findOneAndUpdate(
-                { user_ID: msg.author.id },
-                { $inc: { user_points: -5, no_submission_perDay: 1 } }
-              )
-              .then((data) => {
-                // console.log(data);
-                msg.reply(data.user_name + "'s points **decreased** by 5\n");
-              })
-              .catch((err) => {
-                console.log("error while decreamenting points" + err);
-              });
+        }
+
+        if (checker === true && submissions <= 3) {
+          checkCode(link[0])
+            .then((data) => {
+              if (data.includes("✅") == true) {
+                userModel
+                  .findOneAndUpdate(
+                    { user_ID: msg.author.id },
+                    { $inc: { user_points: 10, no_submission_perDay: 1 } }
+                  )
+                  .then((data) => {
+                    // console.log(data);
+                    msg.reply(
+                      data.user_name + "'s points **increased** by 10\n"
+                    );
+                  })
+                  .catch((err) => {
+                    console.log("error while incrementing points" + err);
+                  });
+              }
+              if (data.includes("❌") == true) {
+                userModel
+                  .findOneAndUpdate(
+                    { user_ID: msg.author.id },
+                    { $inc: { user_points: -5, no_submission_perDay: 1 } }
+                  )
+                  .then((data) => {
+                    // console.log(data);
+                    msg.reply(
+                      data.user_name + "'s points **decreased** by 5\n"
+                    );
+                  })
+                  .catch((err) => {
+                    console.log("error while decreamenting points" + err);
+                  });
+              }
+              msg.reply("**" + data + "**");
+              console.log("####reply sent successfully####");
+            })
+            .catch((err) => {
+              msg.reply(
+                "**Limit exceeded for gemini model**\nTry after some time"
+              );
+            });
+        }
+        if (checker === true && submissions > 3) {
+          try {
+            msg.reply("🚨 **No of submissions are exhuasted**");
+          } catch (error) {
+            console.log("error occured while sending error msg");
           }
-          msg.reply("**" + data + "**");
-          console.log("####reply sent successfully####");
-        })
-        .catch((err) => {
-          msg.reply("**Limit exceeded for gemini model**\nTry after some time");
-        });
+        }
+        if (checker === false) {
+          try {
+            msg.reply("**🚫 User not added **\nAsk the mods to add u.");
+          } catch (error) {
+            console.log("error occured while sending error msg");
+          }
+        }
+      });
     }
+
+    // shit-posting code
     if (
       (link == null || link[0].indexOf("raw.githubusercontent.com") <= -1) &&
       msg.channelId == allowedChannelID &&
