@@ -137,6 +137,7 @@ client.on("messageCreate", (msg) => {
     // const userData = Array.from(msg.mentions.users.values())[0];
     userModel
       .find({})
+      .sort({ user_points: -1 })
       .then((data) => {
         let tableArr = [["Names", "Points"]];
         const config = {
@@ -268,7 +269,9 @@ client.on("messageCreate", (msg) => {
         }
         if (checker === true && submissions > 3) {
           try {
-            msg.reply("🚨 **No of submissions are exhuasted**");
+            msg.reply(
+              "🚨 **No of submissions are exhuasted**\nYour chance will be replenished at `10:30 pm IST`"
+            );
           } catch (error) {
             console.log("error occured while sending error msg");
           }
@@ -308,12 +311,14 @@ client.once(Events.ClientReady, (readyClient) => {
 });
 client.login(process.env.DISCORD_TOKEN);
 
-// const resetTime = new RecurrenceRule();
-// // rule.hour = 0;
-// resetTime.second = 2;
-// // rule.minute = 0;
-// resetTime.tz = "Etc/UTC";
-
-// scheduleJob(resetTime, () => {
-//   console.log(new Date().toUTCString());
-// });
+scheduleJob({ second: 0, hour: 16, minute: 30, tz: "UTC" }, () => {
+  // console.log(new Date().toUTCString());
+  userModel
+    .updateMany({}, { no_submission_perDay: 0 })
+    .then(() => {
+      console.log("cleared");
+    })
+    .catch((err) => {
+      console.log("error in scheduled job" + err);
+    });
+});
