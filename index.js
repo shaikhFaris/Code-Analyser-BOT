@@ -5,6 +5,7 @@ import { Client, Events, GatewayIntentBits } from "discord.js";
 import { codingQuotes } from "./Quotes.js";
 import userModel from "./database/configDB.js";
 import { table, getBorderCharacters } from "table";
+import { scheduleJob, RecurrenceRule } from "node-schedule";
 dotenv.config();
 const allowedChannelID = "1302490769059221545";
 const genAI = new GoogleGenerativeAI(process.env.API_KEY);
@@ -306,3 +307,13 @@ client.once(Events.ClientReady, (readyClient) => {
   console.log(`Bot is Ready! Logged in as ${readyClient.user.tag}`);
 });
 client.login(process.env.DISCORD_TOKEN);
+
+// const resetTime = new RecurrenceRule();
+// // rule.hour = 0;
+// resetTime.second = 2;
+// // rule.minute = 0;
+// resetTime.tz = "Etc/UTC";
+
+// scheduleJob(resetTime, () => {
+//   console.log(new Date().toUTCString());
+// });
