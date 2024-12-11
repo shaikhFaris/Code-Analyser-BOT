@@ -4,13 +4,26 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import { Client, Events, GatewayIntentBits } from "discord.js";
 import { codingQuotes } from "./Quotes.js";
 import userModel from "./database/configDB.js";
+import questionsModel from "./database/questionsDB.js";
 import { table, getBorderCharacters } from "table";
-import { scheduleJob, RecurrenceRule } from "node-schedule";
+import { scheduleJob } from "node-schedule";
 dotenv.config();
 const allowedChannelID = "1302490769059221545";
 const genAI = new GoogleGenerativeAI(process.env.API_KEY);
 const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+const question = `Question of the day🌟 :
+(28 Nov 2024)
 
+Write a program to find the longest word in a given sentence.
+
+Example
+Input: str="I am hello"
+Output: hello
+
+Please feel free to ask if you have any doubts.
+Also don't forget to upload this on GitHub and share the link in the discord Channel.
+
+Thank you`;
 await mongoose
   .connect(
     `mongodb+srv://shadow:${process.env.MONGODB_TOKEN}@cluster0.bpvig.mongodb.net/bot-database?retryWrites=true&w=majority&appName=Cluster0`
@@ -53,8 +66,12 @@ const getData = async (link) => {
 
 const checkCode = async (link) => {
   const code = await getData(link);
-  // console.log(code);
-  const prompt = `Tell me if this code is correct based on syntax and logic (ignore indentation error)? Only reply in this format (Correct: YES ✅ or Correct: NO ❌). If yes, give me the percentage of this code being genearated by an AI model in this format AI generated possiblity: percentage and also give me the time and space complexity but dont give any explanaition.But if the code is wrong just give me the errors in bullet points with the line number.${code}`;
+  if (question.length == 0) {
+    return null;
+  }
+  const prompt = `Below is the question, tell me if output of the given code is correct (even if it is approximately correct) or wrong? Just answer YES or NO.
+  Question: ${question}
+  Tell me if this code is correct based on syntax and logic (ignore indentation error)? Only reply in this format (Correct: YES ✅ or Correct: NO ❌). If yes, give me the percentage of this code being genearated by an AI model in this format AI generated possiblity: percentage and also give me the time and space complexity but dont give any explanaition.But if the code is wrong just give me the errors in bullet points with the line number.${code};`;
 
   console.log("Analysing the code .....");
   const responseFromAI = await model.generateContent(prompt);
@@ -72,6 +89,18 @@ const client = new Client({
 
 // on message eveent handler
 client.on("messageCreate", (msg) => {
+  // code to set question
+  if (
+    msg.content.includes("🌟") &&
+    msg.author.bot == false &&
+    msg.author.id == "1185502471968268381" &&
+    msg.channelId == "1304700044808818688"
+  ) {
+    // console.log(msg.content);
+    questionsModel.insertMany({ question: msg.content }).then();
+  }
+  // console.log(msg);
+
   // code to add user
   if (
     msg.content.startsWith("$add-user") &&
@@ -226,40 +255,68 @@ client.on("messageCreate", (msg) => {
         if (checker === true && submissions <= 3) {
           checkCode(link[0])
             .then((data) => {
-              if (data.includes("✅") == true) {
-                userModel
-                  .findOneAndUpdate(
-                    { user_ID: msg.author.id },
-                    { $inc: { user_points: 10, no_submission_perDay: 1 } }
-                  )
-                  .then((data) => {
-                    // console.log(data);
+              if (data === null) {
+                const now = new Date();
+                if (now.getUTCHours > 16 && now.getUTCMinutes > 30) {
+                  try {
                     msg.reply(
-                      data.user_name + "'s points **increased** by 10\n"
+                      "**🚫 Submission time for today's question has expired!**\n Don't forget to submit your solution on time tommorrow.\n_btw, submissions won't be accepted after `10 30 pm IST`"
                     );
-                  })
-                  .catch((err) => {
-                    console.log("error while incrementing points" + err);
-                  });
-              }
-              if (data.includes("❌") == true) {
-                userModel
-                  .findOneAndUpdate(
-                    { user_ID: msg.author.id },
-                    { $inc: { user_points: -5, no_submission_perDay: 1 } }
-                  )
-                  .then((data) => {
-                    // console.log(data);
+                  } catch (error) {
+                    console.log(
+                      "error occured while sending question has not been updated yet msg"
+                    );
+                  }
+                } else {
+                  try {
                     msg.reply(
-                      data.user_name + "'s points **decreased** by 5\n"
+                      "**🚫 Today's question has not been updated yet**\nPlease remind the mods."
                     );
-                  })
-                  .catch((err) => {
-                    console.log("error while decreamenting points" + err);
-                  });
+                  } catch (error) {
+                    console.log(
+                      "error occured while sending question has not been updated yet msg"
+                    );
+                  }
+                }
+              } else {
+                if (data.includes("✅") == true) {
+                  userModel
+                    .findOneAndUpdate(
+                      { user_ID: msg.author.id },
+                      { no_submission_perDay: 4 },
+                      { $inc: { user_points: 10 } }
+                    )
+                    .then((data) => {
+                      // console.log(data);
+                      msg.reply(
+                        data.user_name +
+                          `'s points **increased** by **10**\n_Don't post same solution again <@${msg.author.id}>_`
+                      );
+                    })
+                    .catch((err) => {
+                      console.log("error while incrementing points" + err);
+                    });
+                }
+                if (data.includes("❌") == true) {
+                  userModel
+                    .findOneAndUpdate(
+                      { user_ID: msg.author.id },
+                      { $inc: { user_points: -5, no_submission_perDay: 1 } }
+                    )
+                    .then((data) => {
+                      // console.log(data);
+                      msg.reply(
+                        data.user_name + "'s points **decreased** by 5\n"
+                      );
+                    })
+                    .catch((err) => {
+                      console.log("error while decreamenting points" + err);
+                    });
+                }
+                // sending data
+                msg.reply("**" + data + "**");
+                console.log("####reply sent successfully####");
               }
-              msg.reply("**" + data + "**");
-              console.log("####reply sent successfully####");
             })
             .catch((err) => {
               msg.reply(
@@ -312,7 +369,8 @@ client.once(Events.ClientReady, (readyClient) => {
 client.login(process.env.DISCORD_TOKEN);
 
 scheduleJob({ second: 0, hour: 16, minute: 30, tz: "UTC" }, () => {
-  // console.log(new Date().toUTCString());
+  question = "";
+  // 10 30 pm india
   userModel
     .updateMany({}, { no_submission_perDay: 0 })
     .then(() => {
