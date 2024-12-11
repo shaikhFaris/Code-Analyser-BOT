@@ -4,26 +4,14 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import { Client, Events, GatewayIntentBits } from "discord.js";
 import { codingQuotes } from "./Quotes.js";
 import userModel from "./database/configDB.js";
-import questionsModel from "./database/questionsDB.js";
 import { table, getBorderCharacters } from "table";
 import { scheduleJob } from "node-schedule";
 dotenv.config();
 const allowedChannelID = "1302490769059221545";
 const genAI = new GoogleGenerativeAI(process.env.API_KEY);
 const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-const question = `Question of the day🌟 :
-(28 Nov 2024)
+let question = ``;
 
-Write a program to find the longest word in a given sentence.
-
-Example
-Input: str="I am hello"
-Output: hello
-
-Please feel free to ask if you have any doubts.
-Also don't forget to upload this on GitHub and share the link in the discord Channel.
-
-Thank you`;
 await mongoose
   .connect(
     `mongodb+srv://shadow:${process.env.MONGODB_TOKEN}@cluster0.bpvig.mongodb.net/bot-database?retryWrites=true&w=majority&appName=Cluster0`
@@ -96,8 +84,12 @@ client.on("messageCreate", (msg) => {
     msg.author.id == "1185502471968268381" &&
     msg.channelId == "1304700044808818688"
   ) {
-    // console.log(msg.content);
-    questionsModel.insertMany({ question: msg.content }).then();
+    question += `${msg.content}`;
+    client.channels.cache
+      .get("1268547515385516103")
+      .send(
+        "** @everyone Today's question has been updated.**\nNow you can share your solutions."
+      );
   }
   // console.log(msg);
 
@@ -207,6 +199,7 @@ client.on("messageCreate", (msg) => {
     }
     console.log("quote send successfully");
   }
+
   if (
     msg.channelId != allowedChannelID &&
     msg.content.startsWith("$list-father")
@@ -369,7 +362,7 @@ client.once(Events.ClientReady, (readyClient) => {
 client.login(process.env.DISCORD_TOKEN);
 
 scheduleJob({ second: 0, hour: 16, minute: 30, tz: "UTC" }, () => {
-  question = "";
+  question = ``;
   // 10 30 pm india
   userModel
     .updateMany({}, { no_submission_perDay: 0 })
