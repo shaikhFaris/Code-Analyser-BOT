@@ -13,16 +13,13 @@ const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 let question = ``;
 
 await mongoose
-  .connect(
-    `mongodb+srv://shadow:${process.env.MONGODB_TOKEN}@cluster0.bpvig.mongodb.net/bot-database?retryWrites=true&w=majority&appName=Cluster0`
-  )
+  .connect(process.env.MONGODB_TOKEN)
   .then(async () => {
     console.log("connected to database");
   })
   .catch((err) => {
     console.log(
-      "error while connecting to database\nMIGHT BE DUE IP ADDRESS ISSUE\n" +
-        err
+      "error while connecting to database\nMIGHT BE DUE IP ADDRESS ISSUE\n" + err
     );
   });
 
@@ -130,9 +127,7 @@ client.on("messageCreate", (msg) => {
               })
               .then(() => {
                 try {
-                  msg.reply(
-                    `✅ **${userData.globalName}** has been added successfully `
-                  );
+                  msg.reply(`✅ **${userData.globalName}** has been added successfully `);
                   console.log(userData.globalName + " added successfully");
                 } catch (error) {
                   console.log("some error occured");
@@ -200,10 +195,7 @@ client.on("messageCreate", (msg) => {
     console.log("quote send successfully");
   }
 
-  if (
-    msg.channelId != allowedChannelID &&
-    msg.content.startsWith("$list-father")
-  ) {
+  if (msg.channelId != allowedChannelID && msg.content.startsWith("$list-father")) {
     try {
       msg.reply("# `shadow_01004`");
     } catch (error) {
@@ -211,10 +203,7 @@ client.on("messageCreate", (msg) => {
     }
     console.log("owner name send successfully");
   }
-  if (
-    msg.channelId != allowedChannelID &&
-    msg.content.startsWith("$list-commands")
-  ) {
+  if (msg.channelId != allowedChannelID && msg.content.startsWith("$list-commands")) {
     try {
       msg.reply(
         "1. `$quotes` - This command gives you some great quotes (obviously programming related) to help you cope with dopmanine crash.\n2. This bot will give you the summary of your answer if you post the link to the raw file of your solution in the _daily-soluion_ channel (make sure to post only the link of the raw file).\n3. `list-father` - This commands lets you know the one who programmed this bot\n4. `add-user` - This commands adds the user to the bot database. After this the user will be able to post solutions (**can only be used by father**)\n5. `list-users` - This commands lists all the users and their points"
@@ -276,8 +265,10 @@ client.on("messageCreate", (msg) => {
                   userModel
                     .findOneAndUpdate(
                       { user_ID: msg.author.id },
-                      { no_submission_perDay: 4 },
-                      { $inc: { user_points: 10 } }
+                      {
+                        $set: { no_submission_perDay: 4 },
+                        $inc: { user_points: 10 },
+                      }
                     )
                     .then((data) => {
                       // console.log(data);
@@ -298,9 +289,7 @@ client.on("messageCreate", (msg) => {
                     )
                     .then((data) => {
                       // console.log(data);
-                      msg.reply(
-                        data.user_name + "'s points **decreased** by 5\n"
-                      );
+                      msg.reply(data.user_name + "'s points **decreased** by 5\n");
                     })
                     .catch((err) => {
                       console.log("error while decreamenting points" + err);
@@ -312,9 +301,7 @@ client.on("messageCreate", (msg) => {
               }
             })
             .catch((err) => {
-              msg.reply(
-                "**Limit exceeded for gemini model**\nTry after some time"
-              );
+              msg.reply("**Limit exceeded for gemini model**\nTry after some time");
             });
         }
         if (checker === true && submissions > 3) {
